@@ -29,7 +29,12 @@ function registerApiRoutes(app) {
         });
       }
 
-      // Har Create pe naya scan payment (purani Success URL reuse nahi)
+      const isTest =
+        body.test === true ||
+        body.test === "true" ||
+        body.Test === true ||
+        body.Test === "true";
+
       const result = await createPayment({
         merchantId: config.merchantId,
         amount,
@@ -39,6 +44,7 @@ function registerApiRoutes(app) {
         lastName: body.last_name || (body.sender_data && body.sender_data.last_name),
         clientId,
         billingId,
+        test: isTest,
       });
 
       if (
