@@ -11,7 +11,7 @@ function registerApiRoutes(app) {
     try {
       if (!credentialsReady()) {
         return res.status(500).json({
-          error: "Missing OXP_MERCHANT_ID in backend/.env",
+          error: "Server env is incomplete.",
           code: "missing_env",
         });
       }

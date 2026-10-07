@@ -10,14 +10,16 @@ let dbReady = null;
 
 function ensureDb() {
   if (!dbReady) {
-    dbReady = initDb().then(() => {
-      console.log("PostgreSQL ready");
-    });
+    dbReady = initDb();
   }
   return dbReady;
 }
 
-app.use(cors({ origin: true }));
+const corsOrigin =
+  config.corsOrigin === "*" ? true : config.corsOrigin.split(",").map((s) => s.trim());
+
+app.use(cors({ origin: corsOrigin }));
+
 app.use(async (_req, _res, next) => {
   try {
     await ensureDb();
@@ -26,6 +28,7 @@ app.use(async (_req, _res, next) => {
     next(error);
   }
 });
+
 app.use(
   ["/webhooks/cryptoprocessing", "/webhooks/0xprocessing"],
   express.raw({ type: "*/*", limit: "2mb" })
@@ -33,11 +36,7 @@ app.use(
 app.use(express.json({ limit: "1mb" }));
 
 app.get("/", (_req, res) => {
-  res.json({
-    ok: true,
-    service: "ox-backend",
-    webhook: "/webhooks/0xprocessing",
-  });
+  res.json({ ok: true, service: "ox-backend" });
 });
 
 registerApiRoutes(app);
@@ -51,17 +50,11 @@ if (!process.env.VERCEL) {
   ensureDb()
     .then(() => {
       app.listen(config.port, () => {
-        const receiveUrl = `${config.publicAppUrl}/webhooks/0xprocessing`;
-        console.log(`Backend running at ${config.publicAppUrl}`);
-        console.log(`Webhook RECEIVE: ${receiveUrl}`);
-        console.log(`Webhook FORWARD: ${config.callbackUrl}`);
+        console.log(`ox-backend listening on :${config.port}`);
       });
     })
     .catch((error) => {
-      console.error(
-        "PostgreSQL connection failed:",
-        (error && error.message) || error
-      );
+      console.error("DB init failed:", (error && error.message) || error);
       process.exit(1);
     });
 }

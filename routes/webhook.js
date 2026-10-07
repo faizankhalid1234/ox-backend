@@ -6,11 +6,9 @@ function rawBodyToString(body) {
   if (Buffer.isBuffer(body)) {
     return body.toString("utf8");
   }
-
   if (typeof body === "string") {
     return body;
   }
-
   return JSON.stringify(body || {});
 }
 
@@ -18,7 +16,6 @@ function registerWebhookRoutes(app) {
   app.post("/webhooks/0xprocessing", handleWebhook);
   app.post("/webhooks/cryptoprocessing", handleWebhook);
 
-  // Latest webhooks stored in DB (exact 0xProcessing JSON)
   app.get("/api/webhooks/latest", async (_req, res) => {
     try {
       const rows = await db.listRecentWebhooks(30);
@@ -42,18 +39,7 @@ async function handleWebhook(req, res) {
     });
   }
 
-  console.log(
-    "[0xProcessing webhook]",
-    "Status=",
-    payload.Status,
-    "PaymentId=",
-    payload.PaymentId,
-    "BillingID=",
-    payload.BillingID || payload.BillingId
-  );
-
   if (!verifyWebhookSignature(payload, config.webhookPassword)) {
-    console.error("[0xProcessing webhook] bad signature");
     return res.status(403).json({
       error: "Bad webhook signature",
       code: "bad_signature",
@@ -63,26 +49,13 @@ async function handleWebhook(req, res) {
   try {
     await db.applyWebhook(payload);
   } catch (error) {
-    console.error("[0xProcessing webhook] db error:", error.message);
     return res.status(500).json({ error: error.message });
   }
 
-  // Forward EXACT 0xProcessing body to CALLBACK_PUBLIC_URL (webhook.cool)
-  // so the viewer shows the same JSON OX sent.
   if (config.callbackUrl && !config.callbackUrl.includes("/webhooks/")) {
-    forwardWebhook(config.callbackUrl, payload)
-      .then(() => {
-        console.log("[0xProcessing webhook] forwarded to", config.callbackUrl);
-      })
-      .catch((error) => {
-        console.error(
-          "[0xProcessing webhook] forward failed:",
-          error && error.message
-        );
-      });
+    forwardWebhook(config.callbackUrl, payload).catch(() => {});
   }
 
-  // OX requires HTTP 200 within ~3s
   res.status(200).end();
 }
 
